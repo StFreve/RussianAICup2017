@@ -10,7 +10,6 @@ void MyStrategy::move( const Player& me, const World& world, const Game& game, M
     if ( world.getTickIndex() == 0 )
 	{
         init( me, world, game );
-		movesQueue_ = aiController_->get_first_moves();
     }
 
 	if( me.getRemainingActionCooldownTicks() == 0 )
@@ -18,7 +17,7 @@ void MyStrategy::move( const Player& me, const World& world, const Game& game, M
         update( me, world, game );
         if(movesQueue_.empty())
 		{
-			movesQueue_ += aiController_->get_next_moves();
+			movesQueue_ += aiController_->move();
 		}
 		if(!movesQueue_.empty())
 		{
