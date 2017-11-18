@@ -86,13 +86,8 @@ MovesQueue VehicleController::select( int groupID, bool clean )
 {
 	if(is_selected(groupID, clean))
 		return MovesQueue();
-    if ( clean ) selected_vehicles_.clear();
-    for ( auto vehicleIt : vehicles_ )
-    {
-        const VehicleGroups& groups = vehicleIt.second->getGroups();
-        if ( std::find( groups.begin(), groups.end(), groupID ) != groups.end() )
-            selected_vehicles_ += vehicleIt.first;
-    }
+    if ( clean ) selected_vehicles_  = groups_[ groupID ];
+    else         selected_vehicles_ += groups_[ groupID ];
 
     Move selectAction;
     selectAction.setAction( clean ? model::ActionType::CLEAR_AND_SELECT : model::ActionType::ADD_TO_SELECTION );
@@ -212,13 +207,7 @@ MovesQueue VehicleController::deselect( int groupID )
 	if(is_deselected(groupID))
 		return MovesQueue();
     Vehicles oldVehicles;
-    oldVehicles.swap( selected_vehicles_ );
-    for ( auto vehicleID : oldVehicles )
-    {
-        const VehicleGroups& groups = vehicles_[ vehicleID ]->getGroups();
-        if ( std::find( groups.begin(), groups.end(), groupID ) == groups.end() )
-            selected_vehicles_ += vehicleID;
-    }
+    selected_vehicles_ -= groups_[ groupID ];
 
     Move deselectAction;
     deselectAction.setAction( model::ActionType::DESELECT );
@@ -397,14 +386,7 @@ VehicleController::Vehicles VehicleController::get( VehicleType vehicleType )
 
 VehicleController::Vehicles VehicleController::get( int groupID )
 {
-    Vehicles vehicles;
-    for ( auto vehicleIt : vehicles_ )
-    {
-        const VehicleGroups& groups = vehicleIt.second->getGroups();
-        if ( vehicleIt.second->getDurability() > 0 && std::find( groups.begin(), groups.end(), groupID ) != groups.end() )
-            vehicles += vehicleIt.first;
-    }
-    return vehicles;
+    return groups_[ groupID ];
 }
 
 VehicleController::Point VehicleController::get_balanced_center_selected()
