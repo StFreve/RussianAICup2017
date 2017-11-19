@@ -5,20 +5,20 @@ using model::Move;
 VehicleController::VehicleController( const model::Player & me, const model::World & world, const model::Game & game )
     : worldWidth( world.getWidth() )
     , worldHeight( world.getHeight() )
-    , groups_( game.getMaxUnitGroup() + 1)
+    , groups_( game.getMaxUnitGroup() + 1 )
 {
-	auto& vehicles = world.getNewVehicles();
-	for(auto& vehicle : vehicles)
-	{
-		if(vehicle.getPlayerId() == me.getId())
-		{
+    auto& vehicles = world.getNewVehicles();
+    for ( auto& vehicle : vehicles )
+    {
+        if ( vehicle.getPlayerId() == me.getId() )
+        {
             vehicles_[ vehicle.getId() ] = VehiclePtr( new Vehicle( vehicle ) );
-		}
+        }
         else
         {
-            enemy_vehicles_[vehicle.getId()] = VehiclePtr( new Vehicle( vehicle ) );
+            enemy_vehicles_[ vehicle.getId() ] = VehiclePtr( new Vehicle( vehicle ) );
         }
-	}
+    }
 }
 
 MovesQueue VehicleController::select_all()
@@ -36,15 +36,10 @@ MovesQueue VehicleController::select( VehicleID vehicleID, bool clean )
 
 MovesQueue VehicleController::select( Point leftUp, Point rightDown, bool clean )
 {
-	if(is_selected(leftUp, rightDown, clean))
-		return MovesQueue();
-	if ( clean ) selected_vehicles_.clear();
-    for ( auto vehicleIt : vehicles_ )
-    {
-        Vehicle& vehicle = *vehicleIt.second;
-        if ( vehicle_is_in_rectangle( vehicle, leftUp, rightDown ) )
-            selected_vehicles_ += vehicleIt.first;
-    }
+    if ( is_selected( leftUp, rightDown, clean ) )
+        return MovesQueue();
+    if ( clean ) selected_vehicles_ = get( leftUp, rightDown );
+    else         selected_vehicles_ += get( leftUp, rightDown );
 
     Move selectAction;
     selectAction.setAction( clean ? model::ActionType::CLEAR_AND_SELECT : model::ActionType::ADD_TO_SELECTION );
@@ -57,15 +52,11 @@ MovesQueue VehicleController::select( Point leftUp, Point rightDown, bool clean 
 
 MovesQueue VehicleController::select( Point leftUp, Point rightDown, VehicleType vehicleType, bool clean )
 {
-	if(is_selected(leftUp, rightDown, vehicleType, clean))
-		return MovesQueue();
-	if ( clean ) selected_vehicles_.clear();
-    for ( auto vehicleIt : vehicles_ )
-    {
-        Vehicle& vehicle = *vehicleIt.second;
-        if ( vehicle_is_in_rectangle( vehicle, leftUp, rightDown ) && vehicle.getType() == vehicleType )
-            selected_vehicles_ += vehicleIt.first;
-    }
+    if ( is_selected( leftUp, rightDown, vehicleType, clean ) )
+        return MovesQueue();
+    if ( clean ) selected_vehicles_ = get( leftUp, rightDown, vehicleType );
+    else         selected_vehicles_ += get( leftUp, rightDown, vehicleType );
+
 
     Move selectAction;
     selectAction.setAction( clean ? model::ActionType::CLEAR_AND_SELECT : model::ActionType::ADD_TO_SELECTION );
@@ -84,9 +75,9 @@ MovesQueue VehicleController::select( VehicleType vehicleType, bool clean )
 
 MovesQueue VehicleController::select( int groupID, bool clean )
 {
-	if(is_selected(groupID, clean))
-		return MovesQueue();
-    if ( clean ) selected_vehicles_  = groups_[ groupID ];
+    if ( is_selected( groupID, clean ) )
+        return MovesQueue();
+    if ( clean ) selected_vehicles_ = groups_[ groupID ];
     else         selected_vehicles_ += groups_[ groupID ];
 
     Move selectAction;
@@ -149,17 +140,9 @@ MovesQueue VehicleController::deselect( VehicleID vehicleID )
 
 MovesQueue VehicleController::deselect( Point leftUp, Point rightDown )
 {
-	if(is_deselected(leftUp, rightDown))
-		return MovesQueue();
-    Vehicles oldVehicles;
-    oldVehicles.swap( selected_vehicles_ );
-    for ( auto vehicleID : oldVehicles )
-    {
-
-        Vehicle& vehicle = *vehicles_[ vehicleID ];
-        if ( !vehicle_is_in_rectangle( vehicle, leftUp, rightDown ) )
-            selected_vehicles_ += vehicleID;
-    }
+    if ( is_deselected( leftUp, rightDown ) )
+        return MovesQueue();
+    selected_vehicles_ -= get( leftUp, rightDown );
 
     Move deselectAction;
     deselectAction.setAction( model::ActionType::DESELECT );
@@ -172,17 +155,10 @@ MovesQueue VehicleController::deselect( Point leftUp, Point rightDown )
 
 MovesQueue VehicleController::deselect( Point leftUp, Point rightDown, VehicleType vehicleType )
 {
-	if(is_deselected(leftUp, rightDown, vehicleType))
-		return MovesQueue(); 
-	Vehicles oldVehicles;
-    oldVehicles.swap( selected_vehicles_ );
-    for ( auto vehicleID : oldVehicles )
-    {
-
-        Vehicle& vehicle = *vehicles_[ vehicleID ];
-        if ( !vehicle_is_in_rectangle( vehicle, leftUp, rightDown ) || vehicle.getType() != vehicleType )
-            selected_vehicles_ += vehicleID;
-    }
+    if ( is_deselected( leftUp, rightDown, vehicleType ) )
+        return MovesQueue();
+    Vehicles oldVehicles;
+    selected_vehicles_ -= get( leftUp, rightDown, vehicleType );
 
     Move deselectAction;
     deselectAction.setAction( model::ActionType::DESELECT );
@@ -197,15 +173,15 @@ MovesQueue VehicleController::deselect( Point leftUp, Point rightDown, VehicleTy
 
 MovesQueue VehicleController::deselect( VehicleType vehicleType )
 {
-	if(is_deselected(vehicleType))
-		return MovesQueue();
+    if ( is_deselected( vehicleType ) )
+        return MovesQueue();
     return deselect( { 0,0 }, { worldWidth, worldHeight }, vehicleType );
 }
 
 MovesQueue VehicleController::deselect( int groupID )
 {
-	if(is_deselected(groupID))
-		return MovesQueue();
+    if ( is_deselected( groupID ) )
+        return MovesQueue();
     Vehicles oldVehicles;
     selected_vehicles_ -= groups_[ groupID ];
 
@@ -226,94 +202,94 @@ bool VehicleController::is_selected_all()
     return true;
 }
 
-bool VehicleController::is_selected( VehicleID vehicleID , bool only )
+bool VehicleController::is_selected( VehicleID vehicleID, bool only )
 {
-	if( selected_vehicles_.find(vehicleID) == selected_vehicles_.end() )
-	{
-		return false;
-	}
-	else if(only)
-	{
-		if( selected_vehicles_.size() != 1 ) return false;
-	}
-    return  true ;
+    if ( selected_vehicles_.find( vehicleID ) == selected_vehicles_.end() )
+    {
+        return false;
+    }
+    else if ( only )
+    {
+        if ( selected_vehicles_.size() != 1 ) return false;
+    }
+    return  true;
 }
 
 bool VehicleController::is_selected( Point leftUp, Point rightDown, bool only )
 {
-	return is_selected(get(leftUp, rightDown), only);
+    return is_selected( get( leftUp, rightDown ), only );
 }
 
 bool VehicleController::is_selected( Point leftUp, Point rightDown, VehicleType vehicleType, bool only )
 {
-	return is_selected(get(leftUp, rightDown, vehicleType), only);
+    return is_selected( get( leftUp, rightDown, vehicleType ), only );
 }
 
 bool VehicleController::is_selected( VehicleType vehicleType, bool only )
 {
-	return is_selected(get(vehicleType), only);
+    return is_selected( get( vehicleType ), only );
 }
 
 bool VehicleController::is_selected( int groupID, bool only )
 {
-	return is_selected(get(groupID), only);
+    return is_selected( get( groupID ), only );
 }
 
-bool VehicleController::is_selected(const Vehicles& vehicles, bool only)
+bool VehicleController::is_selected( const Vehicles& vehicles, bool only )
 {
-	if(only)
-	{
-		return vehicles == selected_vehicles_;
-	}
-	else
-	{
-		int count = std::set_difference(selected_vehicles_.begin(), selected_vehicles_.end(),
-										vehicles.begin(), vehicles.end(),
-										CountingIterator());
-		return ( vehicles.size() + count ) == selected_vehicles_.size();
-	}
+    if ( only )
+    {
+        return vehicles == selected_vehicles_;
+    }
+    else
+    {
+        int count = std::set_difference( selected_vehicles_.begin(), selected_vehicles_.end(),
+                                         vehicles.begin(), vehicles.end(),
+                                         CountingIterator() );
+        return ( vehicles.size() + count ) == selected_vehicles_.size();
+    }
 }
 
 bool VehicleController::is_deselected_all()
 {
-	return selected_vehicles_.empty();
+    return selected_vehicles_.empty();
 }
 
-bool VehicleController::is_deselected(VehicleID vehicleID)
+bool VehicleController::is_deselected( VehicleID vehicleID )
 {
-	if(selected_vehicles_.find(vehicleID) != selected_vehicles_.end())
-	{
-		return false;
-	}
-	return  true;
+    if ( selected_vehicles_.find( vehicleID ) != selected_vehicles_.end() )
+    {
+        return false;
+    }
+    return  true;
 }
 
-bool VehicleController::is_deselected(Point leftUp, Point rightDown)
+bool VehicleController::is_deselected( Point leftUp, Point rightDown )
 {
-	return is_deselected(get(leftUp,rightDown));
+    return is_deselected( get( leftUp, rightDown ) );
 }
 
-bool VehicleController::is_deselected(Point leftUp, Point rightDown, VehicleType vehicleType)
+bool VehicleController::is_deselected( Point leftUp, Point rightDown, VehicleType vehicleType )
 {
-	return is_deselected(get(leftUp, rightDown,vehicleType));
+    return is_deselected( get( leftUp, rightDown, vehicleType ) );
 }
 
-bool VehicleController::is_deselected(VehicleType vehicleType)
+bool VehicleController::is_deselected( VehicleType vehicleType )
 {
-	return is_deselected(get(vehicleType));
+    return is_deselected( get( vehicleType ) );
 }
 
-bool VehicleController::is_deselected(int groupID)
+bool VehicleController::is_deselected( int groupID )
 {
-	return is_deselected(get(groupID));
+    return is_deselected( get( groupID ) );
 }
 
-bool VehicleController::is_deselected(const Vehicles& vehicles)
+bool VehicleController::is_deselected( const Vehicles& vehicles )
 {
-	int count = std::set_difference(selected_vehicles_.begin(), selected_vehicles_.end(),
-									vehicles.begin(), vehicles.end(),
-									CountingIterator());
-	return ( vehicles.size() + count ) > selected_vehicles_.size();
+    int count = std::set_difference( selected_vehicles_.begin(), selected_vehicles_.end(),
+                                     vehicles.begin(), vehicles.end(),
+                                     CountingIterator() );
+    return ( vehicles.size() + count ) > selected_vehicles_.size();
 }
 
 VehicleController::Vehicles VehicleController::get_selected()
@@ -507,7 +483,7 @@ void VehicleController::update( const model::Player & me, const model::World & w
         if ( vehicles_.find( vehicleUpdate.getId() ) != vehicles_.end() )
         {
             VehiclePtr& vehicle = vehicles_[ vehicleUpdate.getId() ];
-            if ( vehicleUpdate.getDurability() > 0 ) 
+            if ( vehicleUpdate.getDurability() > 0 )
             {
                 if ( vehicle->getX() != vehicleUpdate.getX() || vehicle->getY() != vehicleUpdate.getY() )
                 {
@@ -536,18 +512,18 @@ void VehicleController::update( const model::Player & me, const model::World & w
             vehicle.reset( new Vehicle( *enemy_vehicles_[ vehicleUpdate.getId() ], vehicleUpdate ) );
         }
     }
-	auto& vehicles = world.getNewVehicles();
-	for(auto& vehicle : vehicles)
-	{
-		if(vehicle.getPlayerId() == me.getId())
-		{
-			vehicles_[ vehicle.getId() ] = VehiclePtr(new Vehicle(vehicle));
-		}
+    auto& vehicles = world.getNewVehicles();
+    for ( auto& vehicle : vehicles )
+    {
+        if ( vehicle.getPlayerId() == me.getId() )
+        {
+            vehicles_[ vehicle.getId() ] = VehiclePtr( new Vehicle( vehicle ) );
+        }
         else
         {
             enemy_vehicles_[ vehicle.getId() ] = VehiclePtr( new Vehicle( vehicle ) );
         }
-	}
+    }
 }
 
 void VehicleController::reset_selected()
@@ -675,7 +651,7 @@ VehicleController::Point VehicleController::enemy_get_balanced_center( const Veh
 
 VehicleController::Point VehicleController::enemy_get_center()
 {
-    return enemy_get_center(enemy_get_all());
+    return enemy_get_center( enemy_get_all() );
 }
 
 VehicleController::Point VehicleController::enemy_get_center( VehicleID vehicleID )
