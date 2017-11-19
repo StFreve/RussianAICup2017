@@ -41,12 +41,13 @@ public:
     public:
         Vehicles( VehicleID rhvid ) { this->insert( rhvid ); }
         Vehicles() { }
-        Vehicles& operator+=( const Vehicles& rhvs ) { this->insert( rhvs.begin(), rhvs.end() ); return *this; }
+        Vehicles& operator+=( const Vehicles& rhvs ) { if ( this->empty() ) *this = rhvs; else this->insert( rhvs.begin(), rhvs.end() ); return *this; }
         Vehicles& operator+=( VehicleID rhvid ) { this->insert( rhvid ); return *this; }
-        Vehicles operator+( const Vehicles& rhvs ) const { Vehicles newvs = *this; return newvs += rhvs; }
+        Vehicles operator+( const Vehicles& rhvs ) const { if ( this->empty() ) return rhvs; Vehicles newvs = *this; return newvs += rhvs; }
         Vehicles operator+( VehicleID rhvid ) const { Vehicles newvs = *this; return newvs += rhvid; }
 
         Vehicles& operator-=( const Vehicles& rhvs ) {
+            if ( this->empty() ) return *this;
             Vehicles result;
             std::set_difference( this->begin(), this->end(), rhvs.begin(), rhvs.end(), std::inserter( result, result.begin() ) );
             this->swap( result );
